@@ -7,6 +7,8 @@ from tqdm import tqdm
 from pathlib import Path
 import tempfile
 
+RAW_DATA_VERSION = "v1.0"
+
 
 def _bytes_feature(value):
     """Returns a bytes_list from a string / byte."""
@@ -32,7 +34,7 @@ def _serialize_example(image, label):
 
 def _write_tfrecord(images, labels, file: Path):
     with tf.io.TFRecordWriter(str(file)) as writer:
-        for image, label in tqdm(zip(images, labels)):
+        for image, label in tqdm(zip(images, labels), total=len(images)):
             serialized_example = _serialize_example(image, label)
             writer.write(serialized_example)
 
@@ -42,12 +44,17 @@ def _generate_tfrecord(output_dir: Path = Path(os.getcwd()) / "temp_data"):
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.fashion_mnist.load_data()
     data = np.concatenate([x_train, x_test], axis=0)
     labels = np.concatenate([y_train, y_test], axis=0)
-    logging.info('Writing raw data to tfrecord')
+    logging.info(
+        f'Writing raw data to tfrecord, {len(data)} examples, path: {output_dir}')
     _write_tfrecord(data, labels, output_dir / 'fashion_mnist.tfrecord')
 
 
 def get_example_gen() -> ImportExampleGen:
-    temp_root = Path(tempfile.mkdtemp(prefix='tfx-data'))  # Create a temporary directory.
+    # Create a temporary directory.
+    temp_root = Path(tempfile.mkdtemp(prefix='tfx-data'))
+    # add version to the path
+    temp_root = temp_root / RAW_DATA_VERSION
+    Path.mkdir(temp_root, parents=True, exist_ok=True)
     _generate_tfrecord(temp_root)
 
     # Create an instance of the ExampleGen component
