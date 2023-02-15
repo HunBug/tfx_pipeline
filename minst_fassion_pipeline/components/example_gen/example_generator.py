@@ -49,15 +49,19 @@ def _generate_tfrecord(output_dir: Path = Path(os.getcwd()) / "temp_data"):
     _write_tfrecord(data, labels, output_dir / 'fashion_mnist.tfrecord')
 
 
-def get_example_gen() -> ImportExampleGen:
-    # Create a temporary directory.
-    temp_root = Path(tempfile.mkdtemp(prefix='tfx-data'))
-    # add version to the path
-    temp_root = temp_root / RAW_DATA_VERSION
-    Path.mkdir(temp_root, parents=True, exist_ok=True)
-    _generate_tfrecord(temp_root)
+def get_example_gen(from_cache: bool = False) -> ImportExampleGen:
+    if (from_cache):
+        logging.info('Creating ExampleGen component from cache, return dummy')
+        example_gen = ImportExampleGen(input_base="dummy")
+    else:
+        # Create a temporary directory.
+        temp_root = Path(tempfile.mkdtemp(prefix='tfx-data'))
+        # add version to the path
+        temp_root = temp_root / RAW_DATA_VERSION
+        Path.mkdir(temp_root, parents=True, exist_ok=True)
+        _generate_tfrecord(temp_root)
 
-    # Create an instance of the ExampleGen component
-    logging.info('Creating ExampleGen component from tfrecord')
-    example_gen = ImportExampleGen(input_base=str(temp_root))
+        # Create an instance of the ExampleGen component
+        logging.info('Creating ExampleGen component from tfrecord')
+        example_gen = ImportExampleGen(input_base=str(temp_root))
     return example_gen
