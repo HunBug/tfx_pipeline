@@ -5,18 +5,8 @@ from tensorflow import keras
 import os
 from tfx import v1 as tfx
 from tfx_bsl.public import tfxio
-from tensorflow_metadata.proto.v0 import schema_pb2
 import tensorflow_transform as tft
-
-# We don't need to specify _FEATURE_KEYS and _FEATURE_SPEC any more.
-# Those information can be read from the given schema file.
-
-_LABEL_KEY = 'label'
-_IMAGE_KEY = 'image'
-_IMAGE_SHAPE = (28, 28)
-
-_TRAIN_BATCH_SIZE = 20
-_EVAL_BATCH_SIZE = 10
+import components.model_settings as settings
 
 
 def preprocessing_fn(inputs):
@@ -32,22 +22,22 @@ def preprocessing_fn(inputs):
     # raw_image = tf.io.parse_tensor(inputs[_IMAGE_KEY][0], out_type=tf.float32)
     # raw_image = tf.reshape(raw_image, _IMAGE_SHAPE)
     # outputs[_IMAGE_KEY] = raw_image
-    raw_image_dataset = inputs[_IMAGE_KEY]
+    raw_image_dataset = inputs[settings._IMAGE_KEY]
     raw_image_dataset = tf.map_fn(
         fn=lambda x: tf.io.parse_tensor(x[0], tf.uint8, name=None),
         elems=raw_image_dataset,
         fn_output_signature=tf.TensorSpec((28, 28), dtype=tf.uint8, name=None),
         infer_shape=True)
     raw_image_dataset = tf.cast(raw_image_dataset, tf.float32)
-    outputs[_IMAGE_KEY] = raw_image_dataset / 255.0
-    outputs[_LABEL_KEY] = inputs[_LABEL_KEY]
+    outputs[settings._IMAGE_KEY] = raw_image_dataset / 255.0
+    outputs[settings._LABEL_KEY] = inputs[settings._LABEL_KEY]
     return outputs
 
 
 def _apply_preprocessing(raw_features, tft_layer):
     transformed_features = tft_layer(raw_features)
-    if _LABEL_KEY in raw_features:
-        transformed_label = transformed_features.pop(_LABEL_KEY)
+    if settings._LABEL_KEY in raw_features:
+        transformed_label = transformed_features.pop(settings._LABEL_KEY)
         return transformed_features, transformed_label
     else:
         return transformed_features, None
@@ -67,7 +57,7 @@ def _get_serve_tf_examples_fn(model, tf_transform_output):
         # Because input schema includes unnecessary fields like 'species' and
         # 'island', we filter feature_spec to include required keys only.
         required_feature_spec = {
-            k: v for k, v in feature_spec.items() if k in [_IMAGE_KEY]
+            k: v for k, v in feature_spec.items() if k in [settings._IMAGE_KEY]
         }
         parsed_features = tf.io.parse_example(serialized_tf_examples,
                                               required_feature_spec)
@@ -80,6 +70,28 @@ def _get_serve_tf_examples_fn(model, tf_transform_output):
         return model(transformed_features)
 
     return serve_tf_examples_fn
+
+
+def _get_transform_features_signature(model, tf_transform_output):
+    """Returns a serving signature that applies tf.Transform to features."""
+
+    # We need to track the layers in the model in order to save it.
+    # TODO(b/162357359): Revise once the bug is resolved.
+    model.tft_layer_eval = tf_transform_output.transform_features_layer()
+
+    @tf.function(input_signature=[
+        tf.TensorSpec(shape=[None], dtype=tf.string, name='examples')
+    ])
+    def transform_features_fn(serialized_tf_example):
+        """Returns the transformed_features to be fed as input to evaluator."""
+        raw_feature_spec = tf_transform_output.raw_feature_spec()
+        raw_features = tf.io.parse_example(
+            serialized_tf_example, raw_feature_spec)
+        transformed_features = model.tft_layer_eval(raw_features)
+        logging.info('eval_transformed_features = %s', transformed_features)
+        return transformed_features
+
+    return transform_features_fn
 
 
 def _input_fn(file_pattern: List[Text],
@@ -120,7 +132,8 @@ def _build_keras_model() -> tf.keras.Model:
     """
     # The model below is built with Functional API, please refer to
     # https://www.tensorflow.org/guide/keras/overview for all API options.
-    inputs = keras.layers.Input(shape=_IMAGE_SHAPE, name=_IMAGE_KEY)
+    inputs = keras.layers.Input(
+        shape=settings._IMAGE_SHAPE, name=settings._IMAGE_KEY)
 
     d = inputs
     d = keras.layers.Flatten()(d)
@@ -151,12 +164,12 @@ def run_fn(fn_args: tfx.components.FnArgs):
         fn_args.train_files,
         fn_args.data_accessor,
         tf_transform_output,
-        batch_size=_TRAIN_BATCH_SIZE)
+        batch_size=settings._TRAIN_BATCH_SIZE)
     eval_dataset = _input_fn(
         fn_args.eval_files,
         fn_args.data_accessor,
         tf_transform_output,
-        batch_size=_EVAL_BATCH_SIZE)
+        batch_size=settings._EVAL_BATCH_SIZE)
 
     model = _build_keras_model()
     model.fit(
@@ -167,6 +180,7 @@ def run_fn(fn_args: tfx.components.FnArgs):
 
     signatures = {
         'serving_default': _get_serve_tf_examples_fn(model, tf_transform_output),
+        'transform_features': _get_transform_features_signature(model, tf_transform_output),
     }
     model.save(fn_args.serving_model_dir,
                save_format='tf', signatures=signatures)

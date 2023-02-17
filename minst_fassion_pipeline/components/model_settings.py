@@ -1,0 +1,6 @@
+_LABEL_KEY = 'label'
+_IMAGE_KEY = 'image'
+_IMAGE_SHAPE = (28, 28)
+
+_TRAIN_BATCH_SIZE = 20
+_EVAL_BATCH_SIZE = 10
