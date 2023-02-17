@@ -8,4 +8,6 @@ VSCode dev container:
 TFMA widgets don't seem to work in VSCode Jupyter view. Use Jupyter nootebook server instead:
 jupyter nbextension enable --py widgetsnbextension --sys-prefix
 jupyter nbextension enable --py tensorflow_model_analysis --sys-prefix
-jupyter notebook --allow-root
+cd 
+
+https://github.com/microsoft/vscode-jupyter/wiki/IPyWidget-Support-in-VS-Code-Python
