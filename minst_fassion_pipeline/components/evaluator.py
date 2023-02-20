@@ -8,12 +8,12 @@ def get_evaluator(example_gen, trainer, model_resolver) -> tfx.components.Evalua
         model_specs=[tfma.ModelSpec(
             signature_name='serving_default',
             preprocessing_function_names=['transform_features'],
-            label_key=settings._LABEL_KEY)],
+            label_key=settings.LABEL_KEY)],
         slicing_specs=[
             # An empty slice spec means the overall slice, i.e. the whole dataset.
             tfma.SlicingSpec(),
             # Calculate metrics for each penguin species.
-            tfma.SlicingSpec(feature_keys=[settings._LABEL_KEY]),
+            tfma.SlicingSpec(feature_keys=[settings.LABEL_KEY]),
         ],
         metrics_specs=[
             tfma.MetricsSpec(per_slice_thresholds={
