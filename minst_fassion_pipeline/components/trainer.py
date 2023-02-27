@@ -137,7 +137,7 @@ def _build_keras_model() -> tf.keras.Model:
 
     d = inputs
     d = keras.layers.Flatten()(d)
-    for _ in range(2):
+    for _ in range(3):
         d = keras.layers.Dense(16, activation='relu')(d)
     outputs = keras.layers.Dense(10)(d)
 
@@ -192,7 +192,7 @@ def get_trainer(examples, transform) -> tfx.components.Trainer:
         module_file=os.path.abspath(__file__),
         examples=examples.outputs['examples'],
         transform_graph=transform.outputs['transform_graph'],
-        train_args=tfx.proto.TrainArgs(num_steps=100000),
+        train_args=tfx.proto.TrainArgs(num_steps=20000),
         eval_args=tfx.proto.EvalArgs(num_steps=500))
     return trainer
 

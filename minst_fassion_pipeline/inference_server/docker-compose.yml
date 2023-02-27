@@ -1,13 +1,20 @@
 version: "3"
 services:
-      tfserve:
-              image: tensorflow/serving:latest
-              restart: unless-stopped
-              ports:
-                      - 8500:8500
-                      - 8501:8501
-              volumes:
-                      - ${MODEL1_PATH}:/models/${MODEL1_NAME}
-                      - ${MODEL2_PATH}:/models/${MODEL2_NAME}
-                      - /home/deploy/dcp-file/tf_serving/models.config:/models/models.config
-              command: --model_config_file=/models/models.config
+        tfserve:
+                image: tensorflow/serving:latest
+                restart: unless-stopped
+                ports:
+                        - 8500:8500
+                        - 8501:8501
+                volumes:
+                        - ../../serving_model:/models:cached
+                        - ./serving.config:/models/models.config:cached
+                        - ../..:/workspaces:cached
+                command: --model_config_file=/models/models.config
+                deploy:
+                        resources:
+                                reservations:
+                                        devices:
+                                                - driver: nvidia
+                                                  count: 1
+                                                  capabilities: [ gpu ]

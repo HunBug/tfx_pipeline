@@ -22,7 +22,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
 
   db:
     image: postgres:latest
@@ -35,14 +35,6 @@ services:
       POSTGRES_PASSWORD: postgres
     # Add "forwardPorts": ["5432"] to **devcontainer.json** to forward PostgreSQL locally.
     # (Adding the "ports" property to this file will not forward from a Codespace.)
-
-  serving:
-    image: tensorflow/serving:latest
-    restart: unless-stopped
-    volumes:
-      - ../..:/workspaces:cached
-    command: sleep infinity
-    network_mode: service:db
 
 volumes:
   postgres-data:
